@@ -1,14 +1,7 @@
-# virtual environments
 .venv/
 venv/
-
-# model files
+__pycache__/
 models/
 *.keras
 *.h5
-
-# python cache
-__pycache__/
-
-# macOS junk
 .DS_Store
