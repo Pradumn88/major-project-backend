@@ -2,19 +2,15 @@ fastapi==0.115.0
 uvicorn==0.30.1
 python-multipart==0.0.9
 
-# TensorFlow (Stable version supported on Railway)
-tensorflow==2.12.0
+tensorflow==2.13.0
 
-# ML Dependencies
 numpy==1.26.4
 pillow==10.4.0
 scikit-learn==1.5.2
 opencv-python-headless==4.10.0.84
 protobuf==4.25.3
 
-# FastAPI ecosystem
 pydantic==2.8.2
 starlette==0.37.2
 
-# Prod server
 gunicorn==22.0.0
