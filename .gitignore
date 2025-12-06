@@ -1,7 +1,11 @@
-.venv/
-venv/
 __pycache__/
-models/
-*.keras
-*.h5
-.DS_Store
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore ENV files
+venv/
+.venv/
+
+# Ignore logs
+logs/
