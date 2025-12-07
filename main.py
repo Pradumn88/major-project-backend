@@ -106,9 +106,20 @@ def preprocess_image(image_bytes):
 
 def _get_last_conv_layer(model):
     """
-    Automatically find the last conv-like layer with 4D output.
-    Works even if layer names change.
+    Find a conv layer for Grad-CAM.
+
+    1) Try a known MobileNetV2 conv layer inside the base model.
+    2) Fallback: search any 4D conv-like layer in the whole graph.
     """
+    # Try specific layer inside MobileNetV2 submodel
+    try:
+        base = model.get_layer("mobilenetv2_1.00_224")
+        # 'Conv_1' is the last conv layer in MobileNetV2
+        return base.get_layer("Conv_1")
+    except Exception:
+        pass
+
+    # Fallback: search any layer with 4D output
     for layer in reversed(model.layers):
         try:
             shape = layer.output_shape
@@ -116,44 +127,43 @@ def _get_last_conv_layer(model):
             continue
         if isinstance(shape, tuple) and len(shape) == 4:
             return layer
+
     raise ValueError("No 4D convolutional layer found for Grad-CAM.")
 
 
 def make_gradcam_heatmap(img_array, model):
     """
-    Generic Grad-CAM implementation.
-
     img_array: (1, H, W, 3) preprocessed input
     model: keras.Model
     """
     last_conv_layer = _get_last_conv_layer(model)
 
-    # Model that maps input -> (last conv feature maps, predictions)
+    # Build a model that maps input -> (last conv feature maps, predictions)
     grad_model = tf.keras.Model(
         inputs=model.inputs,
         outputs=[last_conv_layer.output, model.output],
     )
 
     with tf.GradientTape() as tape:
-        conv_output, preds = grad_model(img_array)     # conv_output: (1, h, w, c)
-        tape.watch(conv_output)                        # IMPORTANT
+        conv_output, preds = grad_model(img_array)       # conv_output: (1, h, w, c)
+        tape.watch(conv_output)
         top_index = tf.argmax(preds[0])
-        top_channel = preds[:, top_index]
+        top_class = preds[:, top_index]
 
-    # Gradients of top predicted class wrt conv_output
-    grads = tape.gradient(top_channel, conv_output)    # (1, h, w, c)
+    grads = tape.gradient(top_class, conv_output)        # (1, h, w, c)
     if grads is None:
         raise RuntimeError("Grad-CAM gradients are None")
 
-    grads = grads[0]                                   # (h, w, c)
-    pooled_grads = tf.reduce_mean(grads, axis=(0, 1))  # (c,)
+    grads = grads[0]                                     # (h, w, c)
+    pooled_grads = tf.reduce_mean(grads, axis=(0, 1))    # (c,)
 
-    conv_output = conv_output[0]                       # (h, w, c)
+    conv_output = conv_output[0]                         # (h, w, c)
     conv_output = conv_output * pooled_grads
 
-    heatmap = tf.reduce_mean(conv_output, axis=-1)     # (h, w)
+    heatmap = tf.reduce_mean(conv_output, axis=-1)       # (h, w)
     heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-8)
     return heatmap.numpy()
+
 
 
 
